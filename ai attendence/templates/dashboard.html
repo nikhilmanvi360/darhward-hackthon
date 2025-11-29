@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AI Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container">
+            <a href="/" class="navbar-brand mb-0 h1">🎓 AI Attendance System</a>
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-sm btn-outline-light" id="themeToggle">🌙/☀️</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header & Actions -->
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+            <div>
+                <h2 class="display-6 fw-bold">📊 Dashboard</h2>
+                <p class="text-muted mb-0">Overview of today's attendance</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-info" onclick="toggleCustomize()">🛠️ Customize</button>
+                <a href="/register" class="btn btn-success">➕ Add Student</a>
+                <button onclick="exportCSV()" class="btn btn-primary">📥 Export CSV</button>
+            </div>
+        </div>
+
+        <!-- Customization Panel (Hidden by default) -->
+        <div id="customizePanel" class="card shadow mb-4" style="display: none;">
+            <div class="card-header">
+                <h5 class="mb-0">Customize Dashboard</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="showStats" checked
+                                onchange="savePreferences()">
+                            <label class="form-check-label" for="showStats">Statistics Cards</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="showAlerts" checked
+                                onchange="savePreferences()">
+                            <label class="form-check-label" for="showAlerts">Smart Alerts</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="showStudents" checked
+                                onchange="savePreferences()">
+                            <label class="form-check-label" for="showStudents">Registered Students</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="showRecent" checked
+                                onchange="savePreferences()">
+                            <label class="form-check-label" for="showRecent">Recent Attendance</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div id="statsSection" class="row mb-4">
+            <div class="col-md-4">
+                <div class="card shadow text-center h-100 border-primary">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">Total Students</h5>
+                        <h2 class="display-4 fw-bold">{{ students|length }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow text-center h-100 border-success">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">Present Today</h5>
+                        <h2 class="display-4 fw-bold" id="todayCount">{{ present_count }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow text-center h-100 border-info">
+                    <div class="card-body">
+                        <h5 class="card-title text-info">Attendance Rate</h5>
+                        <h2 class="display-4 fw-bold">
+                            {% set p_count = present_count | default(0) %}
+                            {% set s_count = students | length %}
+                            {% if s_count > 0 %}
+                            {{ ((p_count / s_count) * 100)|round|int }}%
+                            {% else %}
+                            0%
+                            {% endif %}
+                        </h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Column -->
+            <div class="col-lg-8">
+                <!-- Smart Alerts -->
+                <div id="alertsSection" class="mb-4">
+                    {% if low_attendance_students %}
+                    <div class="alert alert-warning shadow">
+                        <h5 class="alert-heading">⚠️ Low Attendance Alert</h5>
+                        <p class="mb-0">The following students have less than 75% attendance:</p>
+                        <ul class="mb-0 mt-2">
+                            {% for student in low_attendance_students %}
+                            <li><strong>{{ student.name }}</strong> ({{ student.percentage|round|int }}%)</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% if absent_today %}
+                    <div class="alert alert-danger shadow">
+                        <h5 class="alert-heading">❌ Absent Today</h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for student in absent_today %}
+                            <span class="badge bg-danger">{{ student.name }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success shadow">
+                        <h5 class="alert-heading">🎉 Perfect Attendance!</h5>
+                        <p class="mb-0">All registered students are present today.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Recent Attendance -->
+                <div id="recentSection" class="card shadow mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">🕒 Recent Activity</h5>
+                        <input type="date" id="dateFilter" class="form-control form-control-sm" style="width: 150px;"
+                            onchange="filterByDate()">
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" id="attendanceTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Roll No</th>
+                                        <th>Time</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for record in attendance_records %}
+                                    <tr>
+                                        <td class="fw-bold">{{ record.name }}</td>
+                                        <td>{{ record.roll_number }}</td>
+                                        <td>{{ record.timestamp }}</td>
+                                        <td><span class="badge bg-success">Present</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-lg-4">
+                <!-- Registered Students List -->
+                <div id="studentsSection" class="card shadow mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">👥 Students</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                            {% for student in students %}
+                            <div
+                                class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                                <div>
+                                    <h6 class="mb-0 fw-bold">
+                                        <a href="/student/{{ student.id }}" class="text-decoration-none text-reset">
+                                            {{ student.name }}
+                                        </a>
+                                    </h6>
+                                    <small class="text-muted">{{ student.roll_number }}</small>
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="/student/{{ student.id }}" class="btn btn-outline-info"
+                                        title="View Profile">👤</a>
+                                    <button onclick="deleteStudent({{ student.id }}, '{{ student.name }}')"
+                                        class="btn btn-outline-danger" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4 mb-5">
+            <a href="/" class="btn btn-secondary">Back to Home</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+
+        if (localStorage.getItem('theme') === 'light') {
+            body.setAttribute('data-theme', 'light');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            if (body.getAttribute('data-theme') === 'light') {
+                body.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        // Dashboard Customization
+        function toggleCustomize() {
+            const panel = document.getElementById('customizePanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function savePreferences() {
+            const prefs = {
+                stats: document.getElementById('showStats').checked,
+                alerts: document.getElementById('showAlerts').checked,
+                students: document.getElementById('showStudents').checked,
+                recent: document.getElementById('showRecent').checked
+            };
+            localStorage.setItem('dashboardPrefs', JSON.stringify(prefs));
+            applyPreferences();
+        }
+
+        function applyPreferences() {
+            const prefs = JSON.parse(localStorage.getItem('dashboardPrefs')) || {
+                stats: true, alerts: true, students: true, recent: true
+            };
+
+            document.getElementById('showStats').checked = prefs.stats;
+            document.getElementById('showAlerts').checked = prefs.alerts;
+            document.getElementById('showStudents').checked = prefs.students;
+            document.getElementById('showRecent').checked = prefs.recent;
+
+            document.getElementById('statsSection').style.display = prefs.stats ? 'flex' : 'none';
+            document.getElementById('alertsSection').style.display = prefs.alerts ? 'block' : 'none';
+            document.getElementById('studentsSection').style.display = prefs.students ? 'block' : 'none';
+            document.getElementById('recentSection').style.display = prefs.recent ? 'block' : 'none';
+        }
+
+        // Filter attendance by date
+        function filterByDate() {
+            const dateFilter = document.getElementById('dateFilter').value;
+
+            if (!dateFilter) {
+                location.reload();
+                return;
+            }
+
+            fetch(`/api/attendance?date=${dateFilter}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.querySelector('#attendanceTable tbody');
+                    tbody.innerHTML = '';
+
+                    if (data.records.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center">No records found for this date</td></tr>';
+                        return;
+                    }
+
+                    data.records.forEach(record => {
+                        const row = `
+                            <tr>
+                                <td class="fw-bold">${record.name}</td>
+                                <td>${record.roll_number}</td>
+                                <td>${record.timestamp}</td>
+                                <td><span class="badge bg-success">${record.status}</span></td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
+
+                    document.getElementById('todayCount').textContent = data.records.length;
+                });
+        }
+
+        // Export to CSV
+        function exportCSV() {
+            const dateFilter = document.getElementById('dateFilter').value;
+            let url = '/export-csv';
+
+            if (dateFilter) {
+                url += `?date=${dateFilter}`;
+            }
+
+            window.location.href = url;
+        }
+
+        // Delete Student
+        function deleteStudent(id, name) {
+            if (confirm(`Are you sure you want to delete student ${name}? This cannot be undone.`)) {
+                fetch(`/delete_student/${id}`, {
+                    method: 'POST'
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while deleting.');
+                    });
+            }
+        }
+
+        // Initialize
+        applyPreferences();
+    </script>
+</body>
+
+</html>
