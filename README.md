@@ -159,4 +159,3 @@ To prevent users from holding up a photo:
 ## 📝 License
 This project is open-source and available for educational purposes.
 
-**Built with ❤️ by Antigravity**
