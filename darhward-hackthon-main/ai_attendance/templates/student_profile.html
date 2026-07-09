@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Profile - AI Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container">
+            <a href="/" class="navbar-brand mb-0 h1">🎓 AI Attendance System</a>
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-sm btn-outline-light" id="themeToggle">🌙/☀️</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/dashboard" class="text-decoration-none">Dashboard</a></li>
+                        <li class="breadcrumb-item active text-light" aria-current="page">{{ student.name }}</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Student Info Card -->
+            <div class="col-md-4 mb-4">
+                <div class="card shadow h-100 border-primary">
+                    <div class="card-header bg-transparent text-center border-bottom border-primary">
+                        <div class="display-1 mb-2">👤</div>
+                        <h3 class="mb-0 text-primary">{{ student.name }}</h3>
+                        <p class="mb-0 text-muted">{{ student.roll_number }}</p>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li
+                                class="list-group-item bg-transparent text-light d-flex justify-content-between align-items-center border-secondary">
+                                <span>Attendance Rate</span>
+                                <span
+                                    class="badge {% if percentage >= 75 %}bg-success{% else %}bg-danger{% endif %} rounded-pill">{{
+                                    percentage }}%</span>
+                            </li>
+                            <li
+                                class="list-group-item bg-transparent text-light d-flex justify-content-between align-items-center border-secondary">
+                                <span>Days Present</span>
+                                <span class="badge bg-primary rounded-pill">{{ days_present }}</span>
+                            </li>
+                            <li
+                                class="list-group-item bg-transparent text-light d-flex justify-content-between align-items-center border-secondary">
+                                <span>Total Days</span>
+                                <span class="badge bg-secondary rounded-pill">{{ total_days }}</span>
+                            </li>
+                            <li
+                                class="list-group-item bg-transparent text-light d-flex justify-content-between align-items-center border-secondary">
+                                <span>Joined</span>
+                                <span class="text-muted">{{ student.created_at.split(' ')[0] }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div class="col-md-8 mb-4">
+                <div class="card shadow h-100 border-info">
+                    <div
+                        class="card-header bg-transparent d-flex justify-content-between align-items-center border-bottom border-info">
+                        <h5 class="mb-0 text-info">📅 Attendance Calendar</h5>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-light" onclick="changeMonth(-1)">◀</button>
+                            <span class="btn btn-sm btn-outline-light disabled text-light"
+                                id="currentMonth">Month</span>
+                            <button class="btn btn-sm btn-outline-light" onclick="changeMonth(1)">▶</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="calendar-container">
+                            <div class="row text-center fw-bold mb-2 text-muted">
+                                <div class="col">Sun</div>
+                                <div class="col">Mon</div>
+                                <div class="col">Tue</div>
+                                <div class="col">Wed</div>
+                                <div class="col">Thu</div>
+                                <div class="col">Fri</div>
+                                <div class="col">Sat</div>
+                            </div>
+                            <div id="calendarGrid" class="calendar-grid">
+                                <!-- Calendar days will be generated here -->
+                            </div>
+                        </div>
+
+                        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+                            <div class="d-flex align-items-center">
+                                <div
+                                    style="width: 15px; height: 15px; background-color: var(--neon-green); border-radius: 50%; margin-right: 8px; box-shadow: 0 0 5px var(--neon-green);">
+                                </div>
+                                <span class="text-light">Present</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <div
+                                    style="width: 15px; height: 15px; background-color: var(--neon-pink); border-radius: 50%; margin-right: 8px; box-shadow: 0 0 5px var(--neon-pink);">
+                                </div>
+                                <span class="text-light">Absent</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <div
+                                    style="width: 15px; height: 15px; background-color: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; margin-right: 8px;">
+                                </div>
+                                <span class="text-muted">No Class/Future</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent History -->
+        <div class="card shadow mb-4 border-secondary">
+            <div class="card-header bg-transparent border-bottom border-secondary">
+                <h5 class="mb-0 text-light">🕒 Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle text-light">
+                        <thead>
+                            <tr class="text-muted">
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in recent_records %}
+                            <tr>
+                                <td>{{ record.timestamp.split(' ')[0] }}</td>
+                                <td>{{ record.timestamp.split(' ')[1] }}</td>
+                                <td><span class="badge bg-success">Present</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4 mb-5">
+            <a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+
+        // Check local storage
+        if (localStorage.getItem('theme') === 'light') {
+            body.setAttribute('data-theme', 'light');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            if (body.getAttribute('data-theme') === 'light') {
+                body.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        // Calendar Logic
+        const attendanceDates = {{ attendance_dates | tojson }};
+        let currentDate = new Date();
+
+        function renderCalendar(date) {
+            const year = date.getFullYear();
+            const month = date.getMonth();
+
+            document.getElementById('currentMonth').textContent = date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDay = firstDay.getDay();
+
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            grid.className = 'row row-cols-7 g-2';
+
+            // Empty slots for previous month
+            for (let i = 0; i < startingDay; i++) {
+                const col = document.createElement('div');
+                col.className = 'col';
+                grid.appendChild(col);
+            }
+
+            // Days
+            for (let i = 1; i <= daysInMonth; i++) {
+                const col = document.createElement('div');
+                col.className = 'col';
+
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'p-3 border rounded text-center position-relative';
+                dayDiv.textContent = i;
+
+                // Base styles for dark mode compatibility
+                dayDiv.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                dayDiv.style.borderColor = 'rgba(255,255,255,0.1) !important';
+                dayDiv.style.color = '#fff';
+
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                const today = new Date().toISOString().split('T')[0];
+
+                // Check status
+                if (attendanceDates.includes(dateStr)) {
+                    dayDiv.style.backgroundColor = 'rgba(10, 255, 10, 0.2)'; // Neon Green tint
+                    dayDiv.style.borderColor = 'var(--neon-green) !important';
+                    dayDiv.style.boxShadow = '0 0 10px rgba(10, 255, 10, 0.2)';
+                    dayDiv.title = 'Present';
+                } else if (dateStr < today && new Date(dateStr).getDay() !== 0 && new Date(dateStr).getDay() !== 6) {
+                    // Assuming Mon-Fri are class days and date is in past
+                    dayDiv.style.backgroundColor = 'rgba(255, 0, 85, 0.2)'; // Neon Pink tint
+                    dayDiv.style.borderColor = 'var(--neon-pink) !important';
+                    dayDiv.style.boxShadow = '0 0 10px rgba(255, 0, 85, 0.2)';
+                    dayDiv.title = 'Absent';
+                } else {
+                    dayDiv.style.opacity = '0.5';
+                }
+
+                col.appendChild(dayDiv);
+                grid.appendChild(col);
+            }
+        }
+
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            renderCalendar(currentDate);
+        }
+
+        renderCalendar(currentDate);
+    </script>
+</body>
+
+</html>

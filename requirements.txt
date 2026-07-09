@@ -1,0 +1,9 @@
+Flask
+opencv-contrib-python
+numpy
+Pillow
+streamlit
+pandas
+matplotlib
+openpyxl
+fpdf

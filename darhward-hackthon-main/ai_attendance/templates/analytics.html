@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - AI Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container">
+            <a href="/" class="navbar-brand mb-0 h1">🎓 AI Attendance System</a>
+            <button class="btn btn-sm btn-outline-light" id="themeToggle">🌙/☀️</button>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4 align-items-center">
+            <div class="col-md-8">
+                <h2 class="display-6 fw-bold">📊 Analytics & Reports</h2>
+                <p class="text-muted">Comprehensive attendance analytics and insights</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="/dashboard" class="btn btn-outline-light">Back to Dashboard</a>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="card shadow mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">🏆 Most Punctual Students</h5>
+                <span class="badge bg-warning text-dark">Top Performers</span>
+            </div>
+            <div class="card-body">
+                {% if leaderboard %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Name</th>
+                                <th>Roll Number</th>
+                                <th>Attendance Rate</th>
+                                <th>Days Attended</th>
+                                <th>Total Days</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in leaderboard[:10] %}
+                            <tr>
+                                <td>
+                                    {% if loop.index == 1 %}
+                                    <span class="badge rounded-pill"
+                                        style="background: linear-gradient(135deg, #FFD700, #FFA500); color: #000;">🥇
+                                        1st</span>
+                                    {% elif loop.index == 2 %}
+                                    <span class="badge rounded-pill"
+                                        style="background: linear-gradient(135deg, #C0C0C0, #808080); color: #000;">🥈
+                                        2nd</span>
+                                    {% elif loop.index == 3 %}
+                                    <span class="badge rounded-pill"
+                                        style="background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff;">🥉
+                                        3rd</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary rounded-pill">{{ loop.index }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-bold">{{ student.name }}</td>
+                                <td>{{ student.roll_number }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2"
+                                            style="height: 8px; background-color: rgba(255,255,255,0.1);">
+                                            <div class="progress-bar" role="progressbar"
+                                                style="width: {{ student.percentage }}%; 
+                                                        background: {% if student.percentage >= 90 %}linear-gradient(135deg, #4facfe, #00f2fe)
+                                                                   {% elif student.percentage >= 75 %}linear-gradient(135deg, #f6d365, #fda085)
+                                                                   {% else %}linear-gradient(135deg, #f093fb, #f5576c){% endif %};">
+                                            </div>
+                                        </div>
+                                        <span class="small fw-bold">{{ student.percentage }}%</span>
+                                    </div>
+                                </td>
+                                <td>{{ student.days_attended }}</td>
+                                <td>{{ student.total_days }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info d-flex align-items-center">
+                    <span class="me-2">ℹ️</span> No attendance data available yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <!-- Weekly Report -->
+            <div class="col-md-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">📅 This Week's Attendance</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="weeklyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Trend -->
+            <div class="col-md-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">📈 30-Day Attendance Trend</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Report Table -->
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📆 This Month's Daily Attendance</h5>
+            </div>
+            <div class="card-body">
+                {% if monthly_report %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Students Present</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for day in monthly_report %}
+                            <tr>
+                                <td>{{ day.date }}</td>
+                                <td>
+                                    {% if day.count > 0 %}
+                                    <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">No Data</span>
+                                    {% endif %}
+                                </td>
+                                <td><span class="badge bg-primary rounded-pill px-3">{{ day.count }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info d-flex align-items-center">
+                    <span class="me-2">ℹ️</span> No monthly data available yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+
+        // Check saved theme
+        if (localStorage.getItem('theme') === 'light') {
+            body.setAttribute('data-theme', 'light');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            if (body.getAttribute('data-theme') === 'light') {
+                body.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            }
+            updateCharts(); // Update charts for new theme
+        });
+
+        // Chart Configuration
+        Chart.defaults.color = '#e0e0e0';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+
+        function getChartColors() {
+            const isLight = body.getAttribute('data-theme') === 'light';
+            return {
+                text: isLight ? '#333' : '#e0e0e0',
+                grid: isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)'
+            };
+        }
+
+        // Weekly Chart
+        const weeklyData = {{ weekly_report | tojson }};
+        const weeklyLabels = weeklyData.map(d => d.day);
+        const weeklyCounts = weeklyData.map(d => d.count);
+
+        let weeklyChart = new Chart(document.getElementById('weeklyChart'), {
+            type: 'bar',
+            data: {
+                labels: weeklyLabels,
+                datasets: [{
+                    label: 'Students Present',
+                    data: weeklyCounts,
+                    backgroundColor: 'rgba(79, 172, 254, 0.8)',
+                    borderColor: 'rgba(79, 172, 254, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    hoverBackgroundColor: '#00f2fe'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        // Trend Chart
+        const trendData = {{ trends | tojson }};
+        const trendLabels = trendData.map(d => d.date);
+        const trendCounts = trendData.map(d => d.count);
+
+        let trendChart = new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    label: 'Daily Attendance',
+                    data: trendCounts,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#764ba2',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#764ba2',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        function updateCharts() {
+            const colors = getChartColors();
+
+            [weeklyChart, trendChart].forEach(chart => {
+                chart.options.scales.y.ticks.color = colors.text;
+                chart.options.scales.x.ticks.color = colors.text;
+                chart.options.scales.y.grid.color = colors.grid;
+                chart.options.scales.x.grid.color = colors.grid;
+                chart.update();
+            });
+        }
+
+        // Initial update
+        updateCharts();
+    </script>
+</body>
+
+</html>

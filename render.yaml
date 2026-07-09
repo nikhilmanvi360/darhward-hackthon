@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: darhward-ai-attendance
+    env: python
+    plan: free
+    branch: main
+    root: "darhward-hackthon-main/ai_attendance"
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    autoDeploy: true
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
